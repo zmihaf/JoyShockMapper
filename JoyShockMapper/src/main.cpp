@@ -1073,8 +1073,10 @@ void joyShockPollCallback(int jcHandle, JOY_SHOCK_STATE state, JOY_SHOCK_STATE l
 	auto at = jc->getSetting<Switch>(SettingID::ADAPTIVE_TRIGGER);
 	if (at == Switch::OFF)
 	{
-		AdaptiveTriggerSetting none;
-		jsl->SetTriggerEffect(jc->_handle, none, none);
+		// Passthrough mode: don't write trigger effects so native game effects can own the triggers.
+		AdaptiveTriggerSetting passthrough;
+		passthrough.mode = AdaptiveTriggerMode::INVALID;
+		jsl->SetTriggerEffect(jc->_handle, passthrough, passthrough);
 	}
 	else
 	{

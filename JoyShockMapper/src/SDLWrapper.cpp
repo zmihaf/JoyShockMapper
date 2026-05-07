@@ -140,6 +140,8 @@ struct ControllerDevice
 		_micLight = 0;
 		memset(&_leftTriggerEffect, 0, sizeof(_leftTriggerEffect));
 		memset(&_rightTriggerEffect, 0, sizeof(_rightTriggerEffect));
+		// Explicitly clear controller-managed trigger effects when this device is torn down.
+		_triggerEffectsEnabled = true;
 		_big_rumble = 0;
 		_small_rumble = 0;
 		SendEffect();
@@ -199,10 +201,13 @@ public:
 			DS5EffectsState_t effectPacket;
 			memset(&effectPacket, 0, sizeof(effectPacket));
 
-			// Add adaptive trigger data
-			effectPacket.ucEnableBits1 |= 0x08 | 0x04; // Enable left and right trigger effect respectively
-			LoadTriggerEffect(effectPacket.rgucLeftTriggerEffect, &_leftTriggerEffect);
-			LoadTriggerEffect(effectPacket.rgucRightTriggerEffect, &_rightTriggerEffect);
+			// Add adaptive trigger data (unless adaptive trigger passthrough is active).
+			if (_triggerEffectsEnabled)
+			{
+				effectPacket.ucEnableBits1 |= 0x08 | 0x04; // Enable left and right trigger effect respectively
+				LoadTriggerEffect(effectPacket.rgucLeftTriggerEffect, &_leftTriggerEffect);
+				LoadTriggerEffect(effectPacket.rgucRightTriggerEffect, &_rightTriggerEffect);
+			}
 
 			// Add current rumbling data
 			effectPacket.ucEnableBits1 |= 0x01 | 0x02;
@@ -226,6 +231,7 @@ public:
 	uint16_t _big_rumble = 0;
 	AdaptiveTriggerSetting _leftTriggerEffect;
 	AdaptiveTriggerSetting _rightTriggerEffect;
+	bool _triggerEffectsEnabled = true;
 	uint8_t _micLight = 0;
 	SDL_Gamepad *_sdlController = nullptr;
 	TOUCH_STATE _prevTouchState;
@@ -705,6 +711,14 @@ public:
 
 	void SetTriggerEffect(int deviceId, const AdaptiveTriggerSetting &_leftTriggerEffect, const AdaptiveTriggerSetting &_rightTriggerEffect) override
 	{
+		if (_leftTriggerEffect.mode == AdaptiveTriggerMode::INVALID && _rightTriggerEffect.mode == AdaptiveTriggerMode::INVALID)
+		{
+			_controllerMap[deviceId]->_triggerEffectsEnabled = false;
+			_controllerMap[deviceId]->SendEffect();
+			return;
+		}
+
+		_controllerMap[deviceId]->_triggerEffectsEnabled = true;
 		if (_leftTriggerEffect != _controllerMap[deviceId]->_leftTriggerEffect || _rightTriggerEffect != _controllerMap[deviceId]->_rightTriggerEffect)
 		{
 			// Update active trigger effect
